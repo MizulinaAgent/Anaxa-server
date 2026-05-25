@@ -1,6 +1,7 @@
 package com.anaxa
 
 import com.anaxa.config.Env
+import com.anaxa.plugins.DatabaseFactory
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -14,6 +15,7 @@ fun main() {
 }
 
 fun Application.module() {
+    DatabaseFactory.init()
     routing {
         get("/health") {
             call.respondText("OK")
