@@ -19,9 +19,8 @@ fun Application.module() {
     configureCORS()
     configureAuthentication()
     DatabaseFactory.init()
+    configureRouting()
     routing {
-        get("/health") {
-            call.respondText("OK")
-        }
+        get("/health") { call.respondText("OK") }
     }
 }
