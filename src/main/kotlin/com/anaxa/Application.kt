@@ -15,6 +15,7 @@ fun main() {
 }
 
 fun Application.module() {
+    configureLogging()
     configureSerialization()
     configureCORS()
     configureStatusPages()
