@@ -17,6 +17,7 @@ fun main() {
 fun Application.module() {
     configureSerialization()
     configureCORS()
+    configureAuthentication()
     DatabaseFactory.init()
     routing {
         get("/health") {
