@@ -17,6 +17,7 @@ fun main() {
 fun Application.module() {
     configureSerialization()
     configureCORS()
+    configureStatusPages()
     configureAuthentication()
     DatabaseFactory.init()
     configureRouting()
