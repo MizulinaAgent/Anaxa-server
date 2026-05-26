@@ -1,7 +1,7 @@
 package com.anaxa
 
 import com.anaxa.config.Env
-import com.anaxa.plugins.DatabaseFactory
+import com.anaxa.plugins.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -15,6 +15,8 @@ fun main() {
 }
 
 fun Application.module() {
+    configureSerialization()
+    configureCORS()
     DatabaseFactory.init()
     routing {
         get("/health") {
