@@ -19,15 +19,15 @@ fun Route.lotRoutes() {
     route("/lots") {
         get {
             val categoryId = call.request.queryParameters["categoryId"]?.toIntOrNull()
-            val status = call.request.queryParameters["status"] ?: "active"
+            val status = call.request.queryParameters["status"]
+            val sellerId = call.request.queryParameters["sellerId"]
+                ?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
             val lots = transaction {
-                val query = Lots.innerJoin(Users, { Lots.sellerId }, { Users.id })
-                    .selectAll()
-                    .where { Lots.status eq status }
-                if (categoryId != null) {
-                    query.andWhere { Lots.categoryId eq categoryId }
-                }
+                val query = Lots.innerJoin(Users, { Lots.sellerId }, { Users.id }).selectAll()
+                if (status != null) query.andWhere { Lots.status eq status }
+                if (categoryId != null) query.andWhere { Lots.categoryId eq categoryId }
+                if (sellerId != null) query.andWhere { Lots.sellerId eq sellerId }
                 query.orderBy(Lots.createdAt, SortOrder.DESC).map { it.toLotResponse() }
             }
             call.respond(lots)
