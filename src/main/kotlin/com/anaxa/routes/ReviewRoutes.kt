@@ -12,6 +12,8 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.util.UUID
 
 fun Route.reviewRoutes() {
@@ -43,17 +45,24 @@ fun Route.reviewRoutes() {
                         .count() > 0
                     if (alreadyReviewed) return@transaction null
 
-                    Reviews.insertAndGetId {
+                    val newId = Reviews.insertAndGetId {
                         it[Reviews.orderId] = orderId
                         it[Reviews.reviewerId] = userId
                         it[Reviews.revieweeId] = revieweeId
                         it[Reviews.rating] = req.rating
                         it[Reviews.comment] = req.comment
                     }
-                } ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Невозможно оставить отзыв"))
 
-                val Reviewer = Users.alias("reviewer_u")
-                val Reviewee = Users.alias("reviewee_u")
+                    val avg = Reviews.selectAll()
+                        .where { Reviews.revieweeId eq revieweeId }
+                        .map { it[Reviews.rating] }
+                        .average()
+                    Users.update({ Users.id eq revieweeId }) {
+                        it[Users.rating] = BigDecimal.valueOf(avg).setScale(2, RoundingMode.HALF_UP)
+                    }
+
+                    newId
+                } ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Невозможно оставить отзыв"))
 
                 val review = transaction {
                     val row = Reviews.selectAll().where { Reviews.id eq reviewId }.first()
