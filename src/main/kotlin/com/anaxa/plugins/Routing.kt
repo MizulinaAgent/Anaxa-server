@@ -7,6 +7,7 @@ import io.ktor.server.routing.*
 fun Application.configureRouting() {
     routing {
         authRoutes()
+        userRoutes()
         gameRoutes()
         lotRoutes()
         orderRoutes()
