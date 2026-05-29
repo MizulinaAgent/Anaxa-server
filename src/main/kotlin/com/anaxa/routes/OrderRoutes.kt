@@ -4,6 +4,7 @@ import com.anaxa.models.dto.LotResponse
 import com.anaxa.models.dto.OrderRequest
 import com.anaxa.models.dto.OrderResponse
 import com.anaxa.models.dto.OrderStatusRequest
+import com.anaxa.models.tables.Categories
 import com.anaxa.models.tables.Lots
 import com.anaxa.models.tables.Orders
 import com.anaxa.models.tables.Users
@@ -162,10 +163,15 @@ private fun buildOrderResponse(orderId: UUID): OrderResponse? {
     val buyer = Users.selectAll().where { Users.id eq order[Orders.buyerId].value }.firstOrNull() ?: return null
     val seller = Users.selectAll().where { Users.id eq order[Orders.sellerId].value }.firstOrNull() ?: return null
 
+    val categoryType = Categories.selectAll()
+        .where { Categories.id eq lotRow[Lots.categoryId] }
+        .firstOrNull()?.get(Categories.type).orEmpty()
+
     val lotResponse = LotResponse(
         id = lotRow[Lots.id].value.toString(),
         seller = seller.toUserResponse(),
         categoryId = lotRow[Lots.categoryId].value,
+        categoryType = categoryType,
         title = lotRow[Lots.title],
         description = lotRow[Lots.description],
         price = lotRow[Lots.price].toDouble(),

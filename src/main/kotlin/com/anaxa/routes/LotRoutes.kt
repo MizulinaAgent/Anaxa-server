@@ -3,6 +3,7 @@ package com.anaxa.routes
 import com.anaxa.models.dto.LotRequest
 import com.anaxa.models.dto.LotResponse
 import com.anaxa.models.dto.LotUpdateRequest
+import com.anaxa.models.tables.Categories
 import com.anaxa.models.tables.Lots
 import com.anaxa.models.tables.Orders
 import com.anaxa.models.tables.Users
@@ -136,14 +137,20 @@ fun Route.lotRoutes() {
     }
 }
 
-private fun ResultRow.toLotResponse() = LotResponse(
-    id = this[Lots.id].value.toString(),
-    seller = toUserResponse(),
-    categoryId = this[Lots.categoryId].value,
-    title = this[Lots.title],
-    description = this[Lots.description],
-    price = this[Lots.price].toDouble(),
-    quantity = this[Lots.quantity],
-    status = this[Lots.status],
-    createdAt = this[Lots.createdAt].toString()
-)
+private fun ResultRow.toLotResponse(): LotResponse {
+    val categoryType = Categories.selectAll()
+        .where { Categories.id eq this@toLotResponse[Lots.categoryId] }
+        .firstOrNull()?.get(Categories.type).orEmpty()
+    return LotResponse(
+        id = this[Lots.id].value.toString(),
+        seller = toUserResponse(),
+        categoryId = this[Lots.categoryId].value,
+        categoryType = categoryType,
+        title = this[Lots.title],
+        description = this[Lots.description],
+        price = this[Lots.price].toDouble(),
+        quantity = this[Lots.quantity],
+        status = this[Lots.status],
+        createdAt = this[Lots.createdAt].toString()
+    )
+}

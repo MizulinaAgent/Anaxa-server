@@ -25,6 +25,7 @@ data class LotResponse(
     val id: String,
     val seller: UserResponse,
     val categoryId: Int,
+    val categoryType: String,
     val title: String,
     val description: String?,
     val price: Double,
