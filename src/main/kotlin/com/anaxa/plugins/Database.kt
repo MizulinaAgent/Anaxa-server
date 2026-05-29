@@ -1,11 +1,22 @@
 package com.anaxa.plugins
 
 import com.anaxa.config.Env
+import com.anaxa.models.tables.Categories
+import com.anaxa.models.tables.Games
+import com.anaxa.models.tables.Lots
+import com.anaxa.models.tables.Users
+import com.anaxa.services.AuthService
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.insertAndGetId
+import org.jetbrains.exposed.sql.innerJoin
+import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.math.BigDecimal
 import java.net.URI
 
 object DatabaseFactory {
@@ -126,5 +137,73 @@ object DatabaseFactory {
             FROM new_games g
             CROSS JOIN (VALUES ('currency'),('items'),('accounts'),('services')) AS t(type)
         """)
+        seedSellersAndLots()
+    }
+
+    private fun Transaction.seedSellersAndLots() {
+        if (Lots.selectAll().limit(1).count() > 0) return
+
+        val passwordHash = AuthService.hashPassword("password123")
+
+        data class SellerSpec(val email: String, val username: String, val rating: String)
+        val sellers = listOf(
+            SellerSpec("coins@anaxa.dev", "CoinSeller", "4.70"),
+            SellerSpec("skins@anaxa.dev", "SkinTrader", "4.50"),
+            SellerSpec("accs@anaxa.dev", "AccountStore", "4.95"),
+            SellerSpec("boost@anaxa.dev", "BoostMaster", "4.30"),
+            SellerSpec("pro@anaxa.dev", "ProGamer228", "4.80")
+        )
+        val sellerIds = sellers.associate { spec ->
+            spec.username to Users.insertAndGetId {
+                it[email] = spec.email
+                it[Users.passwordHash] = passwordHash
+                it[username] = spec.username
+                it[rating] = BigDecimal(spec.rating)
+            }
+        }
+
+        fun categoryId(game: String, type: String) =
+            Categories.innerJoin(Games).selectAll()
+                .where { (Games.name eq game) and (Categories.type eq type) }
+                .firstOrNull()?.get(Categories.id)
+
+        data class LotSpec(
+            val seller: String,
+            val game: String,
+            val type: String,
+            val title: String,
+            val description: String,
+            val price: String,
+            val quantity: Int
+        )
+        val lots = listOf(
+            LotSpec("CoinSeller", "Genshin Impact", "currency", "Кристаллы Genesis ×6480", "Пополнение через вход в аккаунт, 5–15 минут", "1290.00", 30),
+            LotSpec("AccountStore", "Genshin Impact", "accounts", "Аккаунт AR58 · 22 легендарных персонажа", "Почта в комплекте, полный доступ", "8900.00", 1),
+            LotSpec("BoostMaster", "Genshin Impact", "services", "Прохождение Бездны 12-3 на ★36", "Гарантия результата, 1–2 дня", "1500.00", 10),
+            LotSpec("SkinTrader", "Counter-Strike 2", "items", "AWP | Asiimov (Field-Tested)", "Чистая, без наклеек", "3200.00", 3),
+            LotSpec("SkinTrader", "Counter-Strike 2", "items", "★ Karambit | Doppler Phase 2", "Редкий нож, трейд-холд снят", "21500.00", 1),
+            LotSpec("AccountStore", "Counter-Strike 2", "accounts", "Аккаунт Prime · 1500 часов · ML 5", "Без банов, оригинальная почта", "2700.00", 2),
+            LotSpec("ProGamer228", "Dota 2", "items", "Arcana Phantom Assassin", "Подарок через 30 дней дружбы", "1800.00", 5),
+            LotSpec("BoostMaster", "Dota 2", "services", "Калибровка MMR до 4000+", "Соло, без читов", "2500.00", 8),
+            LotSpec("AccountStore", "Dota 2", "accounts", "Аккаунт 5500 MMR · Immortal", "Полный доступ, смена данных", "6400.00", 1),
+            LotSpec("CoinSeller", "Brawl Stars", "currency", "Гемы ×950", "Через вход в Supercell ID", "990.00", 40),
+            LotSpec("AccountStore", "Brawl Stars", "accounts", "Аккаунт 45000 кубков · все бойцы", "Привязка к почте", "4200.00", 1),
+            LotSpec("CoinSeller", "World of Warcraft", "currency", "Золото 100k · сервер RU", "Доставка через аукцион", "850.00", 100),
+            LotSpec("BoostMaster", "World of Warcraft", "services", "Прокачка 1–70 любой класс", "Без использования ботов", "3500.00", 6),
+            LotSpec("ProGamer228", "World of Warcraft", "items", "Подбор маунта Invincible", "Помощь в фарме рейда", "5000.00", 2)
+        )
+
+        lots.forEach { spec ->
+            val category = categoryId(spec.game, spec.type) ?: return@forEach
+            val seller = sellerIds[spec.seller] ?: return@forEach
+            Lots.insert {
+                it[sellerId] = seller
+                it[categoryId] = category
+                it[title] = spec.title
+                it[description] = spec.description
+                it[price] = BigDecimal(spec.price)
+                it[quantity] = spec.quantity
+            }
+        }
     }
 }
