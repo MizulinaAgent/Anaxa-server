@@ -11,6 +11,7 @@ object Lots : UUIDTable("lots") {
     val title = varchar("title", 256)
     val description = text("description").nullable()
     val price = decimal("price", 10, 2)
+    val quantity = integer("quantity").default(1)
     val status = varchar("status", 32).default("active")
     val createdAt = datetime("created_at").defaultExpression(CurrentDateTime)
 }

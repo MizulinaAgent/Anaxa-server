@@ -51,7 +51,7 @@ fun Route.lotRoutes() {
                 val userId = call.userId()
                 val req = call.receive<LotRequest>()
 
-                if (req.title.isBlank() || req.price <= 0.0) {
+                if (req.title.isBlank() || req.price <= 0.0 || req.quantity < 1) {
                     return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Некорректные данные"))
                 }
 
@@ -62,6 +62,7 @@ fun Route.lotRoutes() {
                         it[title] = req.title
                         it[description] = req.description
                         it[price] = BigDecimal.valueOf(req.price)
+                        it[quantity] = req.quantity
                     }
                 }
 
@@ -88,6 +89,7 @@ fun Route.lotRoutes() {
                         req.title?.let { v -> it[title] = v }
                         req.description?.let { v -> it[description] = v }
                         req.price?.let { v -> it[price] = BigDecimal.valueOf(v) }
+                        req.quantity?.let { v -> it[quantity] = v }
                         req.status?.let { v -> it[status] = v }
                     }
                     true
@@ -137,6 +139,7 @@ private fun ResultRow.toLotResponse() = LotResponse(
     title = this[Lots.title],
     description = this[Lots.description],
     price = this[Lots.price].toDouble(),
+    quantity = this[Lots.quantity],
     status = this[Lots.status],
     createdAt = this[Lots.createdAt].toString()
 )

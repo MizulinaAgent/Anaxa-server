@@ -7,7 +7,8 @@ data class LotRequest(
     val categoryId: Int,
     val title: String,
     val description: String?,
-    val price: Double
+    val price: Double,
+    val quantity: Int = 1
 )
 
 @Serializable
@@ -15,6 +16,7 @@ data class LotUpdateRequest(
     val title: String?,
     val description: String?,
     val price: Double?,
+    val quantity: Int?,
     val status: String?
 )
 
@@ -26,6 +28,7 @@ data class LotResponse(
     val title: String,
     val description: String?,
     val price: Double,
+    val quantity: Int,
     val status: String,
     val createdAt: String
 )

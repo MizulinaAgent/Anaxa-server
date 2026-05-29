@@ -39,16 +39,28 @@ fun Route.orderRoutes() {
                 val lotId = runCatching { UUID.fromString(req.lotId) }.getOrNull()
                     ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Некорректный lotId"))
 
+                if (req.quantity < 1) {
+                    return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Некорректное количество"))
+                }
+
                 val orderId = transaction {
                     val lot = Lots.selectAll().where { Lots.id eq lotId }.firstOrNull()
                         ?: return@transaction null
                     if (lot[Lots.sellerId].value == userId) return@transaction null
                     if (lot[Lots.status] != "active") return@transaction null
+                    if (req.quantity > lot[Lots.quantity]) return@transaction null
+
+                    val remaining = lot[Lots.quantity] - req.quantity
+                    Lots.update({ Lots.id eq lotId }) {
+                        it[quantity] = remaining
+                        if (remaining == 0) it[status] = "sold"
+                    }
 
                     Orders.insertAndGetId {
                         it[Orders.lotId] = lotId
                         it[Orders.buyerId] = userId
                         it[Orders.sellerId] = lot[Lots.sellerId].value
+                        it[Orders.quantity] = req.quantity
                     }
                 } ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Невозможно создать заказ"))
 
@@ -122,6 +134,7 @@ private fun buildOrderResponse(orderId: UUID): OrderResponse? {
         title = lotRow[Lots.title],
         description = lotRow[Lots.description],
         price = lotRow[Lots.price].toDouble(),
+        quantity = lotRow[Lots.quantity],
         status = lotRow[Lots.status],
         createdAt = lotRow[Lots.createdAt].toString()
     )
@@ -131,6 +144,7 @@ private fun buildOrderResponse(orderId: UUID): OrderResponse? {
         lot = lotResponse,
         buyer = buyer.toUserResponse(),
         seller = seller.toUserResponse(),
+        quantity = order[Orders.quantity],
         status = order[Orders.status],
         createdAt = order[Orders.createdAt].toString()
     )

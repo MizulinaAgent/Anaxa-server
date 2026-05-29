@@ -74,6 +74,7 @@ object DatabaseFactory {
             title VARCHAR(256) NOT NULL,
             description TEXT,
             price DECIMAL(10,2) NOT NULL,
+            quantity INT NOT NULL DEFAULT 1,
             status VARCHAR(32) DEFAULT 'active',
             created_at TIMESTAMP DEFAULT NOW()
         )""")
@@ -82,9 +83,12 @@ object DatabaseFactory {
             lot_id UUID REFERENCES lots(id),
             buyer_id UUID REFERENCES users(id),
             seller_id UUID REFERENCES users(id),
+            quantity INT NOT NULL DEFAULT 1,
             status VARCHAR(32) DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT NOW()
         )""")
+        exec("ALTER TABLE lots ADD COLUMN IF NOT EXISTS quantity INT NOT NULL DEFAULT 1")
+        exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS quantity INT NOT NULL DEFAULT 1")
         exec("""CREATE TABLE IF NOT EXISTS messages (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
