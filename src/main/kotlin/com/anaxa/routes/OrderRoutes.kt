@@ -19,6 +19,20 @@ import java.util.UUID
 fun Route.orderRoutes() {
     authenticate("jwt") {
         route("/orders") {
+            get("/{id}") {
+                val userId = call.userId()
+                val id = runCatching { UUID.fromString(call.parameters["id"]) }.getOrNull()
+                    ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Некорректный id"))
+
+                val order = transaction { buildOrderResponse(id) }
+                    ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Заказ не найден"))
+
+                if (order.buyer.id != userId.toString() && order.seller.id != userId.toString()) {
+                    return@get call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Нет доступа"))
+                }
+                call.respond(order)
+            }
+
             post {
                 val userId = call.userId()
                 val req = call.receive<OrderRequest>()
