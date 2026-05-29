@@ -137,7 +137,21 @@ object DatabaseFactory {
             FROM new_games g
             CROSS JOIN (VALUES ('currency'),('items'),('accounts'),('services')) AS t(type)
         """)
+        seedGameIcons()
         seedSellersAndLots()
+    }
+
+    private fun Transaction.seedGameIcons() {
+        val icons = mapOf(
+            "Genshin Impact" to "https://upload.wikimedia.org/wikipedia/en/thumb/5/5d/Genshin_Impact_logo.svg/500px-Genshin_Impact_logo.svg.png",
+            "Counter-Strike 2" to "https://cdn.cloudflare.steamstatic.com/steam/apps/730/logo.png",
+            "Dota 2" to "https://cdn.cloudflare.steamstatic.com/steam/apps/570/logo.png",
+            "Brawl Stars" to "https://upload.wikimedia.org/wikipedia/en/thumb/b/b2/Brawl_Stars_logo_2025.svg/500px-Brawl_Stars_logo_2025.svg.png",
+            "World of Warcraft" to "https://upload.wikimedia.org/wikipedia/en/thumb/6/65/World_of_Warcraft.png/500px-World_of_Warcraft.png"
+        )
+        icons.forEach { (name, url) ->
+            exec("UPDATE games SET icon_url = '$url' WHERE name = '$name' AND (icon_url IS NULL OR icon_url = '')")
+        }
     }
 
     private fun Transaction.seedSellersAndLots() {
