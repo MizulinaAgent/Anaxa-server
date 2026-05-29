@@ -113,6 +113,41 @@ fun Route.orderRoutes() {
                     }
                 }
             }
+
+            post("/{id}/refund") {
+                val userId = call.userId()
+                val id = runCatching { UUID.fromString(call.parameters["id"]) }.getOrNull()
+                    ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Некорректный id"))
+
+                val result = transaction {
+                    val order = Orders.selectAll().where { Orders.id eq id }.firstOrNull()
+                        ?: return@transaction null
+                    if (order[Orders.sellerId].value != userId) return@transaction false
+                    if (order[Orders.status] == "cancelled") return@transaction false
+
+                    Orders.update({ Op.build { Orders.id eq id } }) { it[status] = "cancelled" }
+
+                    val lotId = order[Orders.lotId].value
+                    val lot = Lots.selectAll().where { Lots.id eq lotId }.firstOrNull()
+                    if (lot != null) {
+                        Lots.update({ Op.build { Lots.id eq lotId } }) {
+                            it[quantity] = lot[Lots.quantity] + order[Orders.quantity]
+                            if (lot[Lots.status] == "sold") it[status] = "active"
+                        }
+                    }
+                    true
+                }
+
+                when (result) {
+                    null -> call.respond(HttpStatusCode.NotFound, mapOf("error" to "Заказ не найден"))
+                    false -> call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Нет доступа"))
+                    else -> {
+                        val order = transaction { buildOrderResponse(id) }
+                            ?: return@post call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "Ошибка сервера"))
+                        call.respond(order)
+                    }
+                }
+            }
         }
     }
 }
