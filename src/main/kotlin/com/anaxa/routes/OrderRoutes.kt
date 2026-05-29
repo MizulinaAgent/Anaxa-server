@@ -6,6 +6,7 @@ import com.anaxa.models.dto.OrderResponse
 import com.anaxa.models.dto.OrderStatusRequest
 import com.anaxa.models.tables.Categories
 import com.anaxa.models.tables.Lots
+import com.anaxa.models.tables.Messages
 import com.anaxa.models.tables.Orders
 import com.anaxa.models.tables.Users
 import io.ktor.http.*
@@ -15,6 +16,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.time.LocalDateTime
 import java.util.UUID
 
 fun Route.orderRoutes() {
@@ -25,7 +27,7 @@ fun Route.orderRoutes() {
                 val id = runCatching { UUID.fromString(call.parameters["id"]) }.getOrNull()
                     ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Некорректный id"))
 
-                val order = transaction { buildOrderResponse(id) }
+                val order = transaction { buildOrderResponse(id, userId) }
                     ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Заказ не найден"))
 
                 if (order.buyer.id != userId.toString() && order.seller.id != userId.toString()) {
@@ -62,10 +64,11 @@ fun Route.orderRoutes() {
                         it[Orders.buyerId] = userId
                         it[Orders.sellerId] = lot[Lots.sellerId].value
                         it[Orders.quantity] = req.quantity
+                        it[Orders.buyerReadAt] = LocalDateTime.now()
                     }
                 } ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Невозможно создать заказ"))
 
-                val order = transaction { buildOrderResponse(orderId.value) }
+                val order = transaction { buildOrderResponse(orderId.value, userId) }
                     ?: return@post call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "Ошибка сервера"))
                 call.respond(HttpStatusCode.Created, order)
             }
@@ -82,7 +85,7 @@ fun Route.orderRoutes() {
 
                     Orders.selectAll().where { condition }
                         .orderBy(Orders.createdAt, SortOrder.DESC)
-                        .mapNotNull { buildOrderResponse(it[Orders.id].value) }
+                        .mapNotNull { buildOrderResponse(it[Orders.id].value, userId) }
                 }
                 call.respond(orders)
             }
@@ -108,7 +111,7 @@ fun Route.orderRoutes() {
                     null -> call.respond(HttpStatusCode.NotFound, mapOf("error" to "Заказ не найден"))
                     false -> call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Нет доступа"))
                     true -> {
-                        val order = transaction { buildOrderResponse(id) }
+                        val order = transaction { buildOrderResponse(id, userId) }
                             ?: return@put call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "Ошибка сервера"))
                         call.respond(order)
                     }
@@ -143,7 +146,7 @@ fun Route.orderRoutes() {
                     null -> call.respond(HttpStatusCode.NotFound, mapOf("error" to "Заказ не найден"))
                     false -> call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Нет доступа"))
                     else -> {
-                        val order = transaction { buildOrderResponse(id) }
+                        val order = transaction { buildOrderResponse(id, userId) }
                             ?: return@post call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "Ошибка сервера"))
                         call.respond(order)
                     }
@@ -153,8 +156,16 @@ fun Route.orderRoutes() {
     }
 }
 
-private fun buildOrderResponse(orderId: UUID): OrderResponse? {
+private fun buildOrderResponse(orderId: UUID, viewerId: UUID): OrderResponse? {
     val order = Orders.selectAll().where { Orders.id eq orderId }.firstOrNull() ?: return null
+
+    val isSeller = order[Orders.sellerId].value == viewerId
+    val readAt = if (isSeller) order[Orders.sellerReadAt] else order[Orders.buyerReadAt]
+    val newMessages = Messages.selectAll().where {
+        val base = (Messages.orderId eq orderId) and (Messages.senderId neq viewerId)
+        if (readAt != null) base and (Messages.createdAt greater readAt) else base
+    }.count().toInt()
+    val unreadCount = newMessages + if (readAt == null) 1 else 0
 
     val lotRow = Lots.innerJoin(Users, { Lots.sellerId }, { Users.id })
         .selectAll().where { Lots.id eq order[Orders.lotId].value }
@@ -187,6 +198,7 @@ private fun buildOrderResponse(orderId: UUID): OrderResponse? {
         seller = seller.toUserResponse(),
         quantity = order[Orders.quantity],
         status = order[Orders.status],
+        unreadCount = unreadCount,
         createdAt = order[Orders.createdAt].toString()
     )
 }

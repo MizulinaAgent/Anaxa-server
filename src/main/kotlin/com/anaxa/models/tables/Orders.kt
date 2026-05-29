@@ -10,5 +10,7 @@ object Orders : UUIDTable("orders") {
     val sellerId = reference("seller_id", Users)
     val quantity = integer("quantity").default(1)
     val status = varchar("status", 32).default("pending")
+    val buyerReadAt = datetime("buyer_read_at").nullable()
+    val sellerReadAt = datetime("seller_read_at").nullable()
     val createdAt = datetime("created_at").defaultExpression(CurrentDateTime)
 }

@@ -12,6 +12,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.time.LocalDateTime
 import java.util.UUID
 
 fun Route.messageRoutes() {
@@ -25,7 +26,14 @@ fun Route.messageRoutes() {
                 val hasAccess = transaction {
                     val order = Orders.selectAll().where { Orders.id eq orderId }.firstOrNull()
                         ?: return@transaction false
-                    order[Orders.buyerId].value == userId || order[Orders.sellerId].value == userId
+                    val isBuyer = order[Orders.buyerId].value == userId
+                    val isSeller = order[Orders.sellerId].value == userId
+                    if (!isBuyer && !isSeller) return@transaction false
+                    Orders.update({ Orders.id eq orderId }) {
+                        if (isSeller) it[Orders.sellerReadAt] = LocalDateTime.now()
+                        else it[Orders.buyerReadAt] = LocalDateTime.now()
+                    }
+                    true
                 }
                 if (!hasAccess) return@get call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Нет доступа"))
 

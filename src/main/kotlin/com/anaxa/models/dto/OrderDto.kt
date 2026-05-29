@@ -16,5 +16,6 @@ data class OrderResponse(
     val seller: UserResponse,
     val quantity: Int,
     val status: String,
+    val unreadCount: Int,
     val createdAt: String
 )

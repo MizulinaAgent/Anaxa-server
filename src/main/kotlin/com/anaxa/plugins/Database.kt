@@ -100,6 +100,8 @@ object DatabaseFactory {
         )""")
         exec("ALTER TABLE lots ADD COLUMN IF NOT EXISTS quantity INT NOT NULL DEFAULT 1")
         exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS quantity INT NOT NULL DEFAULT 1")
+        exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_read_at TIMESTAMP")
+        exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS seller_read_at TIMESTAMP")
         exec("""CREATE TABLE IF NOT EXISTS messages (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
