@@ -4,6 +4,7 @@ import com.anaxa.models.dto.LotRequest
 import com.anaxa.models.dto.LotResponse
 import com.anaxa.models.dto.LotUpdateRequest
 import com.anaxa.models.tables.Lots
+import com.anaxa.models.tables.Orders
 import com.anaxa.models.tables.Users
 import io.ktor.http.*
 import io.ktor.server.auth.*
@@ -114,18 +115,21 @@ fun Route.lotRoutes() {
                 val id = runCatching { UUID.fromString(call.parameters["id"]) }.getOrNull()
                     ?: return@delete call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Некорректный id"))
 
-                val deleted = transaction {
+                val result = transaction {
                     val lot = Lots.selectAll().where { Lots.id eq id }.firstOrNull()
-                        ?: return@transaction null
-                    if (lot[Lots.sellerId].value != userId) return@transaction false
+                        ?: return@transaction "not_found"
+                    if (lot[Lots.sellerId].value != userId) return@transaction "forbidden"
+                    val hasOrders = Orders.selectAll().where { Orders.lotId eq id }.count() > 0
+                    if (hasOrders) return@transaction "has_orders"
                     Lots.deleteWhere { Op.build { Lots.id eq id } }
-                    true
+                    "deleted"
                 }
 
-                when (deleted) {
-                    null -> call.respond(HttpStatusCode.NotFound, mapOf("error" to "Лот не найден"))
-                    false -> call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Нет доступа"))
-                    true -> call.respond(HttpStatusCode.NoContent)
+                when (result) {
+                    "not_found" -> call.respond(HttpStatusCode.NotFound, mapOf("error" to "Лот не найден"))
+                    "forbidden" -> call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Нет доступа"))
+                    "has_orders" -> call.respond(HttpStatusCode.Conflict, mapOf("error" to "Нельзя удалить лот с заказами, скройте его"))
+                    else -> call.respond(HttpStatusCode.NoContent)
                 }
             }
         }
