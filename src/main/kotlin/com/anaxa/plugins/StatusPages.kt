@@ -22,11 +22,5 @@ fun Application.configureStatusPages() {
             call.application.log.error("Unhandled exception", cause)
             call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "Внутренняя ошибка сервера"))
         }
-        status(HttpStatusCode.Unauthorized) { call, _ ->
-            call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Требуется авторизация"))
-        }
-        status(HttpStatusCode.NotFound) { call, _ ->
-            call.respond(HttpStatusCode.NotFound, mapOf("error" to "Ресурс не найден"))
-        }
     }
 }
